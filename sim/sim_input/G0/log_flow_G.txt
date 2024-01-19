@@ -1,0 +1,57 @@
+Depots = 4, Waypoints = 1
+  c c c c w 
+d 1 1 0 1 6 
+d 1 0 1 1 9 
+d 0 1 1 1 11 
+d 1 1 1 1 0 
+w 11 9 6 4 4 
+The optimal value is 2.729032
+A solution G is
+[[ 2.00000000e-01  2.00000000e-01 -5.30557649e-11  2.00000000e-01
+   2.15054123e-02]
+ [ 2.00000000e-01 -5.30557649e-11  2.00000000e-01  2.00000000e-01
+   2.15054123e-02]
+ [-5.30557649e-11  2.00000000e-01  2.00000000e-01  2.00000000e-01
+   2.15054123e-02]
+ [ 2.00000000e-01  2.00000000e-01  2.00000000e-01  2.00000000e-01
+  -1.02868152e-09]
+ [ 2.15054128e-02  2.15054128e-02  2.15054128e-02 -4.32301726e-09
+  -4.58084667e-09]]
+A solution for direct input rates of G is
+Depot 0 to Depot 0 is 0.200000
+Depot 0 to Depot 1 is 0.200000
+Depot 0 to Depot 2 is -0.000000
+Depot 0 to Depot 3 is 0.200000
+Depot 0 to CrossPts 0 is 0.021505
+Depot 1 to Depot 0 is 0.200000
+Depot 1 to Depot 1 is -0.000000
+Depot 1 to Depot 2 is 0.200000
+Depot 1 to Depot 3 is 0.200000
+Depot 1 to CrossPts 0 is 0.021505
+Depot 2 to Depot 0 is -0.000000
+Depot 2 to Depot 1 is 0.200000
+Depot 2 to Depot 2 is 0.200000
+Depot 2 to Depot 3 is 0.200000
+Depot 2 to CrossPts 0 is 0.021505
+Depot 3 to Depot 0 is 0.200000
+Depot 3 to Depot 1 is 0.200000
+Depot 3 to Depot 2 is 0.200000
+Depot 3 to Depot 3 is 0.200000
+Depot 3 to CrossPts 0 is -0.000000
+Solution rates from depot to depot routes
+1,0,6,-1
+1,1,6,-1
+1,3,6,-1
+1,2,47,10.5
+2,0,6,-1
+2,2,6,-1
+2,3,6,-1
+2,1,47,10.5
+3,1,6,-1
+3,2,6,-1
+3,3,6,-1
+3,0,47,10.5
+4,0,6,-1
+4,1,6,-1
+4,2,6,-1
+4,3,6,-1

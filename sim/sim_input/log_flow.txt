@@ -1,0 +1,15 @@
+graph output folder, ../graphgenerator/path_output/
+ideal drone gnd spd (km/hr), 72.0
+ideal drone setup time (sec), 0.0
+customer request parameter (orders/hr), 100.0
+reached waypoint distance (meter), 10
+Time step (sec), 1.0
+Total number of time steps, 10000
+Output print rate, 100
+ideal drone amount per depot, 10000
+ideal drone width (meter), 1
+ideal drone length (meter), 1
+TBOV width from drone center (meter), 20
+TBOV length from drone center (meter), 100
+TBOV update rate (sec), 10.0
+depot TBOV ignore distance (meter), 10

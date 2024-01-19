@@ -1,0 +1,25 @@
+distance_matrix D(ij) file location, distance_matrix_L2.csv
+---
+nominal_gnd_spd v (km/hr), 72
+drone_setup_time s (sec), 0
+poisson_client_arr_rate lambda (order/hr), 100
+reached waypoint distance (meter), 10
+---
+time step (sec), 1
+total time steps (count), 10000
+print output every (count), 10
+---
+ideal drone amount per depot (count), 100
+ideal drone width (meter), 1
+ideal drone length (meter), 1
+---
+TBOV width from drone center (meter), 20
+TBOV length from drone center (meter), 100
+TBOV update rate (sec), 10
+depot TBOV ignore distance (meter), 10
+---
+max flow on (True=1/False=0), 1
+seed, 12345
+---
+depot_input_model (FCFS Priority ...), FCFS
+depot_output_model (FCFS Round-Robin ...), FCFS

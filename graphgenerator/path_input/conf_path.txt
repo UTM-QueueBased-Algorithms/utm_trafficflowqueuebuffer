@@ -1,0 +1,7 @@
+depot placement type (number symbol), 3
+---
+total number of sub-graphs (count), 3
+---
+G1, 6
+G2, 3
+G3, 2

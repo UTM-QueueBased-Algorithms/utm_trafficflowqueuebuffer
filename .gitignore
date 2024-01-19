@@ -1,0 +1,9 @@
+*/__pycache__
+.DS_Store
+
+/analysis/flow_output
+
+/graphgenerator/path_output
+
+/sim/sim_input/test0
+/sim/sim_output

@@ -72,6 +72,9 @@ class DataBuffer:
     def getCurrDroneSize(self):
         return self.drone_queue.qsize()
     
+    def getList(self):
+        return list(self.drone_queue.queue)
+    
     def clearNextDroneId(self):
         self.nextDroneId = None
 

@@ -76,7 +76,9 @@ class DataBuffer:
         return list(self.drone_queue.queue)
     
     def clearNextDroneId(self):
+        ret = self.nextDroneId 
         self.nextDroneId = None
+        return ret
 
 #####################################################################
 class DataDrone:

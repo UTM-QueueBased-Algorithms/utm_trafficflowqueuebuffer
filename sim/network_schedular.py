@@ -166,7 +166,7 @@ if __name__ == "__main__":
         buffer_output_model = "FCFS"
         num_exits = 2
         serivce_time = BUFFER_size / speed #travel time across buffer in sec 
-        cros_list.insert(icros, (icros,dq.DataBuffer(buffer_input_model),SchedularNode(num_exits,serivce_time,buffer_output_model)) )
+        cros_list.insert(icros, (icros,dq.DataBuffer(buffer_input_model),dq.DataBuffer(buffer_input_model),SchedularNode(num_exits,serivce_time,buffer_output_model)) )
         print("Crossing ,%d,%s" %(icros,buffer_input_model))
     #--- end Queue set-up
     
@@ -177,7 +177,7 @@ if __name__ == "__main__":
     icustid = -1
     ideptid = -1
     #
-    icnt = 0
+    icnt_customer = 0
     tot_dron_done_cnt = 0
     #--- MAIN SIM
     while(True):
@@ -188,6 +188,8 @@ if __name__ == "__main__":
         plt.axis([-h,1000+h,-h,1000+h])
         # 2D top-view of simulation map
         plt.scatter(xdata_dept_list,ydata_dept_list, c=color_depot,s=80, edgecolors='none', label='depot')
+        for icnt in range(testGraph.num_dept):
+            plt.text(xdata_dept_list[icnt]+BUFFER_size,ydata_dept_list[icnt]+BUFFER_size,"D"+str(icnt))
         plt.scatter(xdata_cust_list,ydata_cust_list, c=color_customer,s=80, edgecolors='none', label='customer')
         # 2D top-view of OIs
         for iroute_box in testroute_boxlist:
@@ -203,7 +205,6 @@ if __name__ == "__main__":
         #2D top-view of buffers
         icnt=0
         for ibuffer in bufferlist:
-            icnt=icnt+1
             x0 = ibuffer[0][2]
             y0 = ibuffer[0][3]
             x1 = ibuffer[1][2]
@@ -218,6 +219,7 @@ if __name__ == "__main__":
             plt.plot( [x1,x2],[y1,y2], c=color_BUFFER )
             plt.plot( [x2,x3],[y2,y3], c=color_BUFFER )
             plt.plot( [x3,x0],[y3,y0], c=color_BUFFER )
+            icnt=icnt+1
         #end buffers
         #end, init print
 
@@ -229,14 +231,32 @@ if __name__ == "__main__":
                 it = cust.getNextExpTime(itime)
                 icustid = cust.getCustomerId()
                 ideptid = cust.getDepotId()
-                icnt = icnt + 1
-                cust_size0 = cust_list[0].getCurrCustomerSize()
-                cust_size1 = cust_list[1].getCurrCustomerSize()
-                print("\nCUSTOMER CNT = "+str(icnt))
-                print("   depot<"+str(cust_size0)+":"+str(list(cust_list[0].customer_queue.queue))+">")
-                print("   depot<"+str(cust_size1)+":"+str(list(cust_list[1].customer_queue.queue))+">")
+                icnt_customer = icnt_customer + 1
             #---
 
+            #display status of customers
+            print("\nTIME = "+str(itime)+"/"+str(math.ceil(it))+"\tCUSTOMER CNT = "+str(icnt_customer))
+            #display status of buffers
+            print("\tBuffer(state) \tInfo<#:list>")
+            for ibuffer in cros_list:
+                icros = ibuffer[0] #crossing number label
+                iqueu = ibuffer[1] #list of waiting drones at crossing
+                iqueu_passed = ibuffer[2] #list of approved drones to fly in buffer
+                ische = ibuffer[3] #schedular for processing waiting drones
+                print("\tbuffer["+str(icros)+"]")
+                print("\t---wait\t<"+str(iqueu.getCurrDroneSize())+":"+str(iqueu.getList())+">") 
+                print("\t---fly\t<"+str(iqueu_passed.getCurrDroneSize())+":"+str(iqueu_passed.getList())+">")
+            #display status of depots
+            print("\tDepot(state) \tInfo<#:list>")
+            for idept in range(testGraph.num_dept):
+                cust_size = cust_list[idept].getCurrCustomerSize()
+                print("\tdepot["+str(idept)+"]")
+                print("\t---wait\t<"+str(cust_size)+":"+str(list(cust_list[idept].customer_queue.queue))+">")
+                #display status of drones per this depot
+                print("\t---gnd\t<"+str(len(dron_list[idept].drones_list_ground))+":"+str(dron_list[idept].drones_list_ground)+">")
+                print("\t---fly\t<"+str(len(dron_list[idept].drones_list_fly))+":"+str(dron_list[idept].drones_list_fly)+">")
+
+            #run schedular
             for idept in range(testGraph.num_dept):
                 #make sure there are customers
                 cust_size = cust_list[idept].getCurrCustomerSize()
@@ -266,7 +286,8 @@ if __name__ == "__main__":
                     for ibuffer in cros_list:
                         icros = ibuffer[0] #crossing number label
                         iqueu = ibuffer[1] #list of waiting drones at crossing
-                        ische = ibuffer[2] #schedular for processing waiting drones
+                        iqueu_passed = ibuffer[2] #list of approved drones to fly in buffer
+                        ische = ibuffer[3] #schedular for processing waiting drones
 
                         checkexit=1 #TODO: include exit checking...
                         (status,openexit) = ische.checkNextExit(checkexit,itime)
@@ -275,7 +296,7 @@ if __name__ == "__main__":
                             #already waiting here, should we free it?
                             if(status):
                                 #good to-go
-                                iqueu.clearNextDroneId()
+                                iqueu_passed.addDroneId(iqueu.clearNextDroneId())
                             else:
                                 #keep holding it here
                                 flag = True
@@ -288,10 +309,18 @@ if __name__ == "__main__":
                             ir = math.sqrt( math.pow(x-ixw,2.0)+math.pow(y-iyw,2.0) )
                             #check if not waiting and within range
                             if( ir<=BUFFER_size and 0<testdrone.speed ):
-                                flag = True
-                                testdrone.pause(Ts)
-                                iqueu.addDroneId(testdrone.id)
-                                break
+                                #check if approved to fly inside
+                                _d_list = iqueu_passed.getList()
+                                _flag = True
+                                for _id in _d_list:
+                                    if(_id==testdrone.id):
+                                        _flag = False
+                                        break
+                                if(_flag):
+                                    flag = True
+                                    testdrone.pause(Ts)
+                                    iqueu.addDroneId(testdrone.id)
+                                    break
                         #endif
                     #endfor
                     if(flag):
@@ -315,7 +344,7 @@ if __name__ == "__main__":
                     #print("T=%f WAIT>\t %s:%s" %(itime,messageMove,messageRoute))
                     if(testdrone.status == ua.Drone.GROUND_READY):
                         assert(dron_list[idept].groundDroneLaunch())
-            #---
+            #---end schedular
 
             #update time
             itime += Ts
@@ -327,7 +356,7 @@ if __name__ == "__main__":
             break
 
         #end, now print
-        plt.text(400,1200, "Time= "+str(itime)+"/"+str(it)+" - Fly= "+str(tot_fly_cnt))
+        plt.text(400,1200, "Time= "+str(itime-Ts)+"/"+str(it)+" - Fly= "+str(tot_fly_cnt))
         plt.pause(1)
     #end
     cust.closeFile()

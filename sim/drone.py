@@ -206,7 +206,7 @@ class DroneMissionPlanner:
 
     def loadGraph(self, file):
         status = False
-        print("DroneMissionPlanner: load graph connection file: "+file)
+        message = "DroneMissionPlanner: load graph connection file: "+file
         try:
             f = open(file,"r")
             reader = csv.reader(f)
@@ -244,12 +244,12 @@ class DroneMissionPlanner:
             status = True
         except Exception as e:
             print("%s" %e )
-        return status
+        return (status,message)
 
     def loadPaths(self, file):
         #TODO: assume distance is in kilo-meters, convert to meters
         status = False
-        print("DroneMissionPlanner: load paths file: "+file)
+        message = "DroneMissionPlanner: load paths file: "+file
         try:
             f = open(file,"r")
             reader = csv.reader(f)
@@ -278,12 +278,12 @@ class DroneMissionPlanner:
             status = True
         except Exception as e:
             print("%s" %e )
-        return status
+        return (status,message)
     
     def loadDepots(self, file):
         #TODO: assume distance is in kilo-meters, convert to meters
         status = False
-        print("DroneMissionPlanner: load depots file: "+file)
+        message = "DroneMissionPlanner: load depots file: "+file
         #  - depot log data (1=dept_id, 2=x, 3=y)
         with open(file,"r") as f_dept:
             reader = csv.reader(f_dept)
@@ -291,12 +291,12 @@ class DroneMissionPlanner:
                 self.Dept_Loc.append( (line[1],float(line[2])*1000,float(line[3])*1000) )
                 print(str(self.Dept_Loc[-1]))
             status = True
-        return status
+        return (status,message)
 
     def loadCustomers(self, file: str):
         #TODO: assume distance is in kilo-meters, convert to meters
         status = False
-        print("DroneMissionPlanner: load customers file: "+file)
+        message = "DroneMissionPlanner: load customers file: "+file
         #  - customer log data (1=cust_id, 2=x, 3=y)
         with open(file,"r") as f_cust:
             reader = csv.reader(f_cust)
@@ -304,7 +304,7 @@ class DroneMissionPlanner:
                 self.Cust_Loc.append( (line[1],float(line[2])*1000,float(line[3])*1000) )
                 print(str(self.Cust_Loc[-1]))
             status = True
-        return status
+        return (status,message)
     
     '''Create Routes'''
 

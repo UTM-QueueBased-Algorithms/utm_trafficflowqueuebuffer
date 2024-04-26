@@ -172,7 +172,7 @@ class TBOVbuffer:
                 tmp_list = [] #clear for next buffer
             #end
             tmp_list.append(self.buffers_pts[i])
-        if(len(buffer_list)>0):
+        if(len(buffer_list)>=0):
             buffer_list.append(tmp_list) #add last buffer
             status = True
         return (status,buffer_list)

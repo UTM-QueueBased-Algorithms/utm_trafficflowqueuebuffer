@@ -1,6 +1,7 @@
 # drone.py
 #
 #  Module for storing drone information status.
+import traceback
 import csv
 import math
 from scipy.integrate import solve_ivp   #for ode kinematics solving
@@ -130,8 +131,9 @@ class Drone:
             #end, update time
             self.time += Ts
             status = True
-        except Exception as e:
-            print("%s" %e)
+        except Exception:
+            message += "- ERROR moveTs"
+            traceback.print_exc()
         #end
         return (status,message)
 
@@ -173,8 +175,9 @@ class Drone:
             #end
             
             status = True
-        except Exception as e:
-            message += "- ERROR updateRoute<"+str(e)+">" 
+        except:
+            message += "- ERROR updateRoute"
+            traceback.print_exc() 
         #end
         return (status,message)
 
@@ -213,6 +216,7 @@ class DroneMissionPlanner:
             #now try reading graph file
             reader.__next__() 
             (M,N,P) = reader.__next__()
+            message += " "+str(M)+" "+str(N)+" "+str(P)
             num_cust = int( N )
             if( self.num_cust<0 ):
                 self.num_cust = num_cust
@@ -242,8 +246,9 @@ class DroneMissionPlanner:
             f.close()
             #everything went well...
             status = True
-        except Exception as e:
-            print("%s" %e )
+        except:
+            message += "- ERROR loadGraph"
+            traceback.print_exc()
         return (status,message)
 
     def loadPaths(self, file):
@@ -276,8 +281,9 @@ class DroneMissionPlanner:
             f.close()
             #everything went well
             status = True
-        except Exception as e:
-            print("%s" %e )
+        except:
+            message += "- ERROR loadPath"
+            traceback.print_exc()
         return (status,message)
     
     def loadDepots(self, file):
@@ -290,6 +296,7 @@ class DroneMissionPlanner:
             for line in reader:
                 self.Dept_Loc.append( (line[1],float(line[2])*1000,float(line[3])*1000) )
                 print(str(self.Dept_Loc[-1]))
+                message += " "+str(self.Dept_Loc[-1])
             status = True
         return (status,message)
 
@@ -303,6 +310,7 @@ class DroneMissionPlanner:
             for line in reader:
                 self.Cust_Loc.append( (line[1],float(line[2])*1000,float(line[3])*1000) )
                 print(str(self.Cust_Loc[-1]))
+                message += " "+str(self.Cust_Loc[-1])
             status = True
         return (status,message)
     
@@ -311,7 +319,6 @@ class DroneMissionPlanner:
     def generateRoute(self, idept,icust, drone_speed,drone_setup_time) -> list:
         route = (-1,-1,-1,-1)
         try:
-            assert( 0 < self.Path.__len__() ) #check if loaded paths file
             assert( 0 < self.Dept_Loc.__len__() )
             assert( 0 < self.Cust_Loc.__len__() )
             #initializations
@@ -328,17 +335,18 @@ class DroneMissionPlanner:
             head = math.atan2(yt-Yr[0],xt-Xr[0])
             Hr.append(head)
             #intermediate pts forward
-            for path in self.Path:   #x,y,id,jd,ic,jc
-                ix = path[0]
-                iy = path[1]
-                if(path[2] == idept):
-                    idistance = math.sqrt( math.pow(ix-Xr[-1],2.0)+math.pow(iy-Yr[-1],2.0) )
-                    iservice_time = Tr[-1] + idistance/drone_speed
-                    head = math.atan2(yt-Yr[-1],xt-Xr[-1])
-                    Xr.append(ix)
-                    Yr.append(iy)
-                    Tr.append(iservice_time)
-                    Hr.append(head)
+            if(0 < self.Path.__len__()): #check if loaded paths file
+                for path in self.Path:   #x,y,id,jd,ic,jc
+                    ix = path[0]
+                    iy = path[1]
+                    if(path[2] == idept):
+                        idistance = math.sqrt( math.pow(ix-Xr[-1],2.0)+math.pow(iy-Yr[-1],2.0) )
+                        iservice_time = Tr[-1] + idistance/drone_speed
+                        head = math.atan2(yt-Yr[-1],xt-Xr[-1])
+                        Xr.append(ix)
+                        Yr.append(iy)
+                        Tr.append(iservice_time)
+                        Hr.append(head)
             #end intermediate pts
             idistance = math.sqrt( math.pow(xt-Xr[-1],2.0)+math.pow(yt-Yr[-1],2.0) )
             iservice_time = Tr[-1] + idistance/drone_speed
@@ -354,8 +362,8 @@ class DroneMissionPlanner:
                 Hr  #list_head
             ]
             #end, mission planner
-        except Exception as e:
-            print("%s" %e )
+        except:
+            traceback.print_exc()
         #return completed route or [-1,-1,-1,-1]
         return route
     

@@ -5,11 +5,17 @@ import sys, os
 import csv
 import math
 #
-import drone                #main drone class - vehicle kinematics and control
-import tbov                 #main tbov class - airspace constraints and route network
-import customer_time        #handles customer requests
-import data_queue           #stores useful customer/drone data
-import network_schedular    #handles network schedular algorithms
+import drone as ua                #main drone class - vehicle kinematics and control
+import tbov as ov                 #main tbov class - airspace constraints and route network
+import customer_time as ct        #handles customer requests
+import data_queue as dq           #stores useful customer/drone data
+import network_schedular as net   #handles network schedular algorithms
+
+#for testing
+import matplotlib.pyplot as plt   #main plotting
+plt.rcParams['font.family'] = 'serif'
+plt.rcParams['font.serif'] = 'Times New Roman'
+fig, ax = plt.subplots()
 
 #------------------------------------------------
 dir_sim_input   = "./sim_input/"
@@ -17,191 +23,342 @@ dir_sim_output  = "./sim_output/"
 
 
 # read conf.txt input file ----------------------
-f_log = open(dir_sim_output+"log.txt", "w+") #capture everything
+f_log = open(dir_sim_input+"log.txt", "w+") #capture everything
 try:
     f_conf = open(dir_sim_input+"conf.txt","r")
     reader = csv.reader(f_conf)
     #read data
-    f_distance_matrix       = dir_sim_input + reader.__next__()[1].replace(" ","") #remove whitespace
-    f_log.write("distance matrix file, %s\n"%f_distance_matrix)
-    print("distance matrix file = ",f_distance_matrix)
+    dir_graph_output       = reader.__next__()[1].replace(" ","") #remove whitespace
+    f_log.write("graph output folder, %s\n"%dir_graph_output)
+    print("graph output folder = ",dir_graph_output)
     reader.__next__()
     #------------------------
     #
     nominal_gnd_spd         = float( reader.__next__()[1] )
-    f_log.write("drone nominal gnd spd (km/hr), %f\n"%nominal_gnd_spd)
+    f_log.write("ideal drone gnd spd (km/hr), %s\n"%nominal_gnd_spd)
     print("ideal drone gnd spd (km/hr) = ",nominal_gnd_spd)
     #convert to (m/sec) for use in sim
     nominal_gnd_spd_m_sec = nominal_gnd_spd * 1000/(60*60)
     #
     drone_setup_time        = float( reader.__next__()[1] )
-    f_log.write("drone setup time delay (sec), %f\n"%drone_setup_time)
+    f_log.write("ideal drone setup time (sec), %s\n"%drone_setup_time)
     print("ideal drone setup time (sec) = ",drone_setup_time)
     #
     poisson_client_arr_rate = float( reader.__next__()[1] )
-    f_log.write("client arr rate (orders/hr), %f\n"%poisson_client_arr_rate)
+    f_log.write("customer request parameter (orders/hr), %s\n"%poisson_client_arr_rate)
     print("customer request parameter (orders/hr) = ",poisson_client_arr_rate)
     #convert to (orders/sec) for use in sim
     poisson_client_arr_rate = poisson_client_arr_rate / (60*60)
     #
     waypoint_clearance      = int( reader.__next__()[1] )
-    drone.Drone.WAYPOINT_MAX_DISTANCE = waypoint_clearance
-    f_log.write("reached waypoint distance (meter), %d\n"%waypoint_clearance)
+    f_log.write("reached waypoint distance (meter), %s\n"%waypoint_clearance)
     reader.__next__()
     #------------------------
     #
     Ts                      = float( reader.__next__()[1] )
-    f_log.write("time step (sec), %f\n"%Ts)
+    f_log.write("Time step (sec), %s\n"%Ts)
     print("Time step (sec) = ",Ts)
     #
     tot_icnt                = int( reader.__next__()[1] )
-    f_log.write("total time steps (count), %d\n"%tot_icnt)
+    f_log.write("Total number of time steps, %s\n"%tot_icnt)
     print("Total number of time steps = ",tot_icnt)
     #
     print_rate              = int( reader.__next__()[1] )
-    f_log.write("print output every (count), %d\n"%print_rate)
+    f_log.write("Output print rate, %s\n"%print_rate)
     print("Output print rate = ",print_rate)
     reader.__next__()
     #------------------------
     #
     drones_per_depot        = int( reader.__next__()[1] )  #ideal, might change later
-    f_log.write("ideal drone amount per depot (count), %d\n"%drones_per_depot)
+    f_log.write("ideal drone amount per depot, %s\n"%drones_per_depot)
     print("ideal drone amount per depot = ",drones_per_depot)
     #
     drone_ideal_width       = int( reader.__next__()[1] )
-    f_log.write("ideal drone width (meter), %d\n"%drone_ideal_width)
+    f_log.write("ideal drone width (meter), %s\n"%drone_ideal_width)
     print("ideal drone width (meter) = ",drone_ideal_width)
     #
     drone_ideal_length     = int( reader.__next__()[1] )
-    f_log.write("ideal drone length (meter), %d\n"%drone_ideal_length)
+    f_log.write("ideal drone length (meter), %s\n"%drone_ideal_length)
     print("ideal drone length (meter) = ",drone_ideal_length)
     reader.__next__()
     #------------------------
     #
     TBOV_width              = int( reader.__next__()[1] )
-    f_log.write("TBOV width from drone center (meter), %d\n"%TBOV_width)
+    f_log.write("TBOV width from drone center (meter), %s\n"%TBOV_width)
     print("TBOV width from drone center (meter) = ",TBOV_width)
     #
     TBOV_length             = int( reader.__next__()[1] )
-    f_log.write("TBOV length from drone center (meter), %d\n"%TBOV_length)
+    f_log.write("TBOV length from drone center (meter), %s\n"%TBOV_length)
     print("TBOV length from drone center (meter) = ",TBOV_length)
     #
     TBOV_Ts                 = float( reader.__next__()[1] )
-    f_log.write("TBOV update rate (sec), %f\n"%TBOV_Ts)
+    f_log.write("TBOV update rate (sec), %s\n"%TBOV_Ts)
     print("TBOV update rate (sec) = ",TBOV_Ts)
     #
     depot_TBOV_clearance    = int( reader.__next__()[1] )
-    #drone.TBOV.IGNORE_DEPOT_DISTANCE = depot_TBOV_clearance
     f_log.write("depot TBOV ignore distance (meter), %d\n"%depot_TBOV_clearance)
-    print("depot TBOV ignore distance (meter) = ",depot_TBOV_clearance)
     reader.__next__()
     #------------------------
     #
-    flag_const_flow         = ( int(reader.__next__()[1]) == 1 )
-    f_log.write("max flow on (True=1/False=0), %s\n"%flag_const_flow)
-    print("max flow on (True=1/False=0) = ",flag_const_flow)
-    #
-    flag_flow_control       = ( int(reader.__next__()[1]) == 1 )
-    f_log.write("flow control on (True=1/False=0), %s\n"%flag_flow_control)
-    print("flow control on (True=1/False=0) = ",flag_flow_control)
-    #
-    seed                    = int( reader.__next__()[1] )
-    f_log.write("seed, %d\n"%seed)
-    print("seed = ",seed)
-    reader.__next__()
-    #------------------------
-    #
-    depot_input_model       = reader.__next__()[1].replace(" ","").replace("\n","")
-    f_log.write("depot_input_model (FCFS Priority ...), %s\n"%depot_input_model)
-    print("depot_input_model = ",depot_input_model)
-    #
-    depot_output_model       = reader.__next__()[1].replace(" ","").replace("\n","")
-    f_log.write("depot_output_model (FCFS Round-Robin ...), %s\n"%depot_output_model)
-    print("depot_output_model = ",depot_output_model)
-
-except:
-    e = sys.exc_info()[0]
-    print("ERROR: %s" %e )
+except Exception as e:
+    print("%s" %e )
     sys.exit(1)
 f_conf.close()
+f_log.write("Creating files for each subgraph...\n") #save individual log per igraph below
 
 #various initializations ------------------------
-#--- setup graph / mission planner
-graphFile = "sim_input/graph_matrix.csv"
-testGraph = drone.DroneMissionPlanner()
-assert( testGraph.loadGraph(graphFile) )
-#
-pathsFile = "sim_input/paths_s.txt"
-assert( testGraph.loadPaths(pathsFile) )
-#
-depotLocFile = "sim_input/depot_loc.txt"
-assert( testGraph.loadDepots(depotLocFile) )
-f_log.write("Number of Depots,%d\n" %testGraph.num_dept)
-print("Number of Depots = ",testGraph.num_dept)
-custLocFile = "sim_input/customer_loc.txt"
-assert( testGraph.loadCustomers(custLocFile) )
-f_log.write("Number of Customers,%d\n" %testGraph.num_cust)
-print("Number of Customers = ",testGraph.num_cust)
-#--- end setup graph / mission planner
+size = 1            #drone box size in meters
+BUFFER_size = 25    #buffer box size in meters 
+flag_const_flow = False
 
-#--- setup locations
-# Depot locations data
+
+#read depot data --------------------------------
+igraph = 0
+Dept_Loc = []   #item=(dept_id,x,y)
+f_depot_data = open(dir_graph_output+"depot_loc.txt", "r")
+reader = csv.reader(f_depot_data)
+for iline in reader:
+    #new sub-graph?
+    if( "Depot" == iline[0] ):
+        idepot = int( iline[1] )
+        ix     = float( iline[2] )
+        iy     = float( iline[3] )
+        Dept_Loc[igraph-1].append( (idepot, ix,iy) )
+    else:
+        #yes, new sub-graph...
+        Dept_Loc.insert(igraph,[])
+        igraph = igraph + 1
+f_depot_data.close()
+
+#data to extract --------------------------------
+#---TBOV network/graph information
+route_list=[]
+route_boxlist=[]
+TBOVbuffers = ov.TBOVbuffer()
+#---
+flow_list = []  #item=(idept,icust,flow,delay)
+cust_input_list  = []   # list of waiting customers/requests
+cust_output_list = []   # list of server (processor) models
+cros_list = []  # list of buffers (servers/processors)
+dron_list = []  # holder of drones per depot (on mission from that depot)
+#---depot locations
 xdata_dept_list = []
 ydata_dept_list = []
-for idata in testGraph.Dept_Loc:
-    xdata_dept_list.append( idata[1] )
-    ydata_dept_list.append( idata[2] )
-# Customer locations data
+#---customer locations
 xdata_cust_list = []
 ydata_cust_list = []
-for idata in testGraph.Cust_Loc:
-    xdata_cust_list.append( idata[1] )
-    ydata_cust_list.append( idata[2] )
-# Buffer locations data
-xdata_buff_list = []
-ydata_buff_list = []
-for idata in testGraph.Cros_Loc:
-    xdata_buff_list.append( 1000*idata[0] )
-    ydata_buff_list.append( 1000*idata[1] )
-#--- end setup locations
+#run through all sub-graphs ---------------------
+num_graphs = igraph
+for igraph in range(num_graphs):
+    #obtain sub-folder for igraph
+    subgraph = "G"+str(igraph)+"/"
+    dir_subgraph = dir_graph_output + subgraph
+    #create sub-folder for sim igraph data
+    dir_sim_input2 = dir_sim_input + subgraph
+    print()
+    try:
+        os.mkdir(dir_sim_input2)
+        print("Error: Directory <"+dir_sim_input2+"> created, need to run flowopt_uni.py first!")
+        os.rmdir(dir_sim_input2)
+        sys.exit(1)
+    except:
+        print("Directory <"+dir_sim_input2+"> exists, all good!")
+    #---
+    f_log_G = open(dir_sim_input2+"log_G.txt", "w+") #capture everything for this igraph
+    f_log_G.write("RUNNING SETUP for Directory <"+dir_sim_input2+"> :: <"+subgraph+">\n")
+    f_log.write("RUNNING SETUP for Directory <"+dir_sim_input2+"> :: <"+subgraph+"> :: check corresponding f_log_G \n")
 
-#--- setup customer data input
-if(not flag_const_flow):
-    cust = customer_time.CustomerSimTime(poisson_client_arr_rate, testGraph.num_cust,testGraph.num_dept, 
-                                     seed=12345, datafile="sim_input/customer_requests_1000.txt",readfile=True)
-#--- end setup customer data input
+    #--- setup graph / mission planner
+    graphFile = dir_subgraph+"graph_matrix.csv"
+    graphMission = ua.DroneMissionPlanner()
+    (status,message) = graphMission.loadGraph(graphFile)
+    f_log_G.write(message+"\n")
+    assert( status )
+    pathsFile = dir_subgraph+"paths_s.txt"
+    (status,message) = graphMission.loadPaths(pathsFile)
+    f_log_G.write(message+"\n")
+    assert( status )
+    depotLocFile = dir_subgraph+"depot_loc.txt"
+    (status,message) = graphMission.loadDepots(depotLocFile)
+    f_log_G.write(message+"\n")
+    assert( status )
+    custLocFile = depotLocFile
+    (status,message) = graphMission.loadCustomers(custLocFile)
+    f_log_G.write(message+"\n")
+    assert( status )
+    #generate some routes
+    for idept in range(graphMission.num_dept):
+        for icust in range(graphMission.num_cust):
+            testroute = graphMission.generateRoute(idept,icust,nominal_gnd_spd_m_sec,drone_setup_time)
+            route_list.append( (igraph,idept,icust,testroute) ) #subgraph,dept,cust,route_info
+            f_log_G.write("\tRoute["+str(igraph)+":"+str(idept)+"->"+str(icust)+"] <"+str(testroute)+">\n")
+    for iroute in route_list:
+        iTBOV = ov.TBOV(iroute[3],size,TBOV_length,TBOV_width)
+        iTBOV.updatePts()
+        boxlist=[]
+        (status,boxlist) = iTBOV.getBoxes()
+        f_log_G.write("\tRoute Pts<"+str(boxlist)+">\n")
+        assert(status)
+        flag=True #assume not exist
+        #check to see if there is already OI from previous
+        for ioi in route_boxlist:
+            if(ioi[0]==igraph and ioi[1]==iroute[1] and ioi[2]==iroute[2]):
+                flag=False #exists(same subgraph,dept,cust) so exit
+                break
+        if(flag):
+            route_boxlist.append( (iroute[0],iroute[1],iroute[2],boxlist) ) #subgraph,dept,cust,{4pt-rect}
+    #--- end setup graph / mission planner
 
-cust_list = []
-for idept in range(testGraph.num_dept):   #TODO: currently assume each depot has same input process
-    cust_list.insert(idept, data_queue.DataDepot(depot_input_model))
-    print("Depot customer ,%d,%s" %(idept,depot_input_model))
-dron_list = []
-for idept in range(testGraph.num_dept):   #TODO: currently assume each depot has same number of drones
-    dron_list.insert(idept, data_queue.DataDrone(drones_per_depot))
-    print("Depot drone ,%d,%d" %(idept,drones_per_depot))
-cros_list = []
-for icros in range(testGraph.num_wayt):
-    buffer_input_model = depot_input_model
-    cros_list.insert(icros, data_queue.DataBuffer(buffer_input_model))
-    print("Crossing ,%d,%s" %(icros,buffer_input_model))
-#
+    #--- setup locations
+    # Depot locations data
+    for idata in graphMission.Dept_Loc:
+        flag=True #assume not exist
+        #check to see if there is already this location from previous
+        for iloc in range(len(xdata_dept_list)):
+            if(xdata_dept_list[iloc]==idata[1] and ydata_dept_list[iloc]==idata[2]):
+                flag=False #exists so exit
+                break
+        if(flag):
+            xdata_dept_list.append( idata[1] )
+            ydata_dept_list.append( idata[2] )
+    f_log_G.write("\tNumber of Depots <"+str(len(graphMission.Dept_Loc))+">\n")
+    # Customer locations data
+    for idata in graphMission.Cust_Loc:
+        flag=True #assume not exist
+        #check to see if there is already this location from previous
+        for iloc in range(len(xdata_cust_list)):
+            if(xdata_cust_list[iloc]==idata[1] and ydata_cust_list[iloc]==idata[2]):
+                flag=False #exists so exit
+                break
+        if(flag):
+            xdata_cust_list.append( idata[1] )
+            ydata_cust_list.append( idata[2] )
+    f_log_G.write("\tNumber of Customers <"+str(len(graphMission.Cust_Loc))+">\n")
+    # Buffer locations data
+    bufferptslist = graphMission.getCrossings()
+    f_log_G.write("\tNumber of Crossings <"+str(len(bufferptslist))+"> :"+str(bufferptslist)+"\n")
+    for i in range(len(bufferptslist)):
+        Loc = ( bufferptslist[i][0] , bufferptslist[i][1] )
+        TBOVbuffers.placeBuffer(Loc,BUFFER_size)
+        f_log_G.write("\t\tBuffer <"+str(TBOVbuffers.buffers[-1])+">\n")
+    #endfor
+    (status,bufferlist) = TBOVbuffers.getBuffers()
+    f_log_G.write("\tNumber of Buffers <"+str(len(bufferptslist))+">\n")
+    assert(status)
+    #--- end setup locations
 
-#flow initializations
-f_log.write("Flows:\n")
-Flow = []   #item=(idept,icust,flow,delay)
-with open(dir_sim_input+"log_flow.txt","r") as f_flow:
-    reader = csv.reader(f_flow)
-    pline = ""
-    for line in reader:
-        if(pline == "Solution rates from depot to customer routes"):
-            #next lines are data we seek
-            if(line[0] != ""): #ignore empty lines
-                Flow.append( (int(line[0]),int(line[1]),int(line[2]),0) )
-                f_log.write(str(Flow[-1])+"\n")
-                #print(Flow[-1])
-        else:
-            pline = line[0]
-#exit()
+    #--- Queuing Models set-up
+    for idept in range(graphMission.num_dept):   #TODO: currently assume each depot has same input process
+        depot_input_model = "FCFS"
+        cust_output_list.append( (igraph,dq.DataDepot(depot_input_model)) )
+        f_log.write("\tDepot customer ,%d,%s\n" %(idept,depot_input_model))
+    for idept in range(graphMission.num_dept):   #TODO: currently assume each depot has same number of drones
+        drones_per_depot = 100
+        dron_list.append( (igraph,dq.DataDrone(drones_per_depot)) )
+        f_log.write("\tDepot drone ,%d,%d\n" %(idept,drones_per_depot))
+    for icros in range(graphMission.num_wayt):
+        buffer_input_model = "FCFS"
+        buffer_output_model = "FCFS"
+        num_exits = 2
+        serivce_time = BUFFER_size / nominal_gnd_spd_m_sec #travel time across buffer in sec 
+        cros_list.append((igraph,icros,dq.DataBuffer(buffer_input_model),dq.DataBuffer(buffer_input_model),net.SchedularNode(num_exits,serivce_time,buffer_output_model)) )
+        f_log.write("\tCrossing ,%d,%s\n" %(icros,buffer_input_model))
+    #--- end Queue set-up
+
+    #--- setup customer data input
+    custfile=dir_sim_input2+"customer_requests.txt"
+    cust_read = ct.CustomerSimTime(poisson_client_arr_rate, graphMission.num_cust,graphMission.num_dept, 
+                                seed=12345, datafile=custfile,readfile=True)
+    cust_input_list.append( (igraph,cust_read) )
+    f_log.write("\tCustomer requests added<"+custfile+">\n")
+    #--- end setup customer data input
+
+    #--- flow initializations
+    f_log_G.write("\tFlows:\n")
+    flowfile=dir_sim_input2+"log_flow_G.txt"
+    with open(flowfile,"r") as f_flow:
+        reader = csv.reader(f_flow)
+        pline = ""
+        for line in reader:
+            if(pline == "Solution rates from depot to depot routes"):
+                #next lines are data we seek
+                if(line[0] != ""): #ignore empty lines
+                    flow_list.append( (igraph,int(line[0]),int(line[1]),int(line[2]),0) )
+                    f_log_G.write("\t\t"+str(flow_list[-1])+"\n")
+                    #print(Flow[-1])
+            else:
+                pline = line[0]
+    f_log.write("\tFlow rates added<"+flowfile+">\n")
+    #--- end flow init.
+
+    f_log_G.close() #end for this igraph
+#end run through all sub-graphs -----------------
+print()
+
+flag_test1 = True
+#run pre-test
+if(flag_test1):
+    f_log.write("RUNNING TEST 1\n")
+    print("RUNNING TEST 1")
+    #plot values
+    h = 150 
+    color_location = 'orange'
+    color_TBOV = 'blue'
+    color_BUFFER = 'green'
+    #init print
+    plt.cla()
+    xmin = min(xdata_dept_list)
+    xmax = max(xdata_dept_list)
+    ymin = min(ydata_dept_list)
+    ymax = max(ydata_dept_list)
+    plt.axis([xmin-h,xmax+h,ymin-h,ymax+h])
+    # 2D top-view of OIs
+    for iroute_box in route_boxlist:
+        boxlist = iroute_box[3]
+        for ibox in boxlist:
+            #plt.scatter(ibox[0],ibox[1], c=color_TBOV,s=15, edgecolors='black')
+            plt.plot( [ibox[0],ibox[2]],[ibox[1],ibox[3]], c=color_TBOV, alpha=0.1 )
+            plt.plot( [ibox[2],ibox[4]],[ibox[3],ibox[5]], c=color_TBOV, alpha=0.1 )
+            plt.plot( [ibox[4],ibox[6]],[ibox[5],ibox[7]], c=color_TBOV, alpha=0.1 )
+            plt.plot( [ibox[6],ibox[0]],[ibox[7],ibox[1]], c=color_TBOV, alpha=0.1 )
+        #end box plot
+    #end OI
+    # 2D top-view of simulation map
+    plt.scatter(xdata_dept_list,ydata_dept_list, c=color_location,s=80, edgecolors='none', label='Location')
+    for icnt in range(len(xdata_dept_list)):
+        plt.text(xdata_dept_list[icnt]+BUFFER_size,ydata_dept_list[icnt]+BUFFER_size,"L"+str(icnt))
+    #2D top-view of buffers
+    (status,bufferlist) = TBOVbuffers.getBuffers()
+    f_log.write("\tNumber of Buffers <"+str(len(bufferlist))+">\n")
+    assert(status)
+    icnt=0
+    for ibuffer in bufferlist:
+        x0 = ibuffer[0][2]
+        y0 = ibuffer[0][3]
+        x1 = ibuffer[1][2]
+        y1 = ibuffer[1][3]
+        x2 = ibuffer[2][2]
+        y2 = ibuffer[2][3]
+        x3 = ibuffer[3][2]
+        y3 = ibuffer[3][3]
+        plt.text(ibuffer[0][0]+BUFFER_size,ibuffer[0][1]+BUFFER_size,"B"+str(icnt))
+        plt.scatter(ibuffer[0][0],ibuffer[0][1], c=color_BUFFER,s=BUFFER_size, edgecolors='black', label='Buffer')
+        plt.plot( [x0,x1],[y0,y1], c=color_BUFFER )
+        plt.plot( [x1,x2],[y1,y2], c=color_BUFFER )
+        plt.plot( [x2,x3],[y2,y3], c=color_BUFFER )
+        plt.plot( [x3,x0],[y3,y0], c=color_BUFFER )
+        icnt=icnt+1
+    #end buffers
+    #end, init print
+    #---
+    f_log.write("\tCreating plot\n")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+    f_log.write("Finished TEST 1\n")
+    print("Finished TEST 1")
+    sys.exit(0)
+#end pre-test
 
 #sim initializations
 f_log.write("---START SIMULATION---\n")

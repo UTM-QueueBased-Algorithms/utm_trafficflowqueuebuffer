@@ -110,6 +110,11 @@ f_log.write("Creating files for each subgraph...\n") #save individual log per ig
 size = 1            #drone box size in meters
 BUFFER_size = 25    #buffer box size in meters 
 flag_const_flow = False
+#---
+flag_test1 = False   #TBOV and network
+flag_test2 = False   #Customer Data
+#---
+flag_sim = False    #start main sim
 
 
 #read depot data --------------------------------
@@ -295,11 +300,10 @@ for igraph in range(num_graphs):
 #end run through all sub-graphs -----------------
 print()
 
-flag_test1 = True
-#run pre-test
+#run pre-test 1
 if(flag_test1):
-    f_log.write("RUNNING TEST 1\n")
-    print("RUNNING TEST 1")
+    f_log.write("RUNNING TEST 1: TBOV and network\n")
+    print("RUNNING TEST 1: TBOV and network")
     #plot values
     h = 150 
     color_location = 'orange'
@@ -357,8 +361,33 @@ if(flag_test1):
     plt.show()
     f_log.write("Finished TEST 1\n")
     print("Finished TEST 1")
+#end pre-test 1
+#run pre-test 2
+if(flag_test2):
+    f_log.write("RUNNING TEST 2: Customer Data\n")
+    print("RUNNING TEST 2: Customer Data")
+    # read data and print it out
+    for icust in cust_input_list:
+        igraph = icust[0]
+        cust_read = icust[1]
+        try:
+            f_log.write("Graph["+str(igraph)+"]\ncnt \t ids \t time \n")
+            while(True):
+                (icnt, ideptid,icustid,it) = cust_read.readNextTime()
+                f_log.write("%d \t(%d %d \t %f)\n" %(icnt, ideptid,icustid,it))
+        except:
+            f_log.write("done with Graph["+str(igraph)+"]\n")
+        cust_read.closeFile()
+    #---
+    f_log.write("Finished TEST 2\n")
+    print("Finished TEST 2")
+
+
+
+
+# DONE with tests.. should we continue with sim?-
+if(not flag_sim):
     sys.exit(0)
-#end pre-test
 
 #sim initializations
 f_log.write("---START SIMULATION---\n")

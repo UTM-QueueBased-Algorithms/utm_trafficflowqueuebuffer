@@ -67,8 +67,8 @@ cp_dron_list = dron_list.copy()
 cp_cust_list = cust_list.copy()
 for idrone in cp_dron_list:    #item=(cust_id,dept_id, dron_service_time, sim_time,drone_id)
     for icust in cp_cust_list: #item=(cust_id,         cust_service_time, sim_time,cust_call_time)
-        #same customer id?
-        if( idrone[0]==icust[0] and idrone[-1]==icust[-1]):
+        #same customer id? same sub-graph? make sure not checking past request..
+        if( idrone[0]==icust[0] and idrone[-1]==icust[-1] and icust[2]<=idrone[3]):
             delay_list.append( (idrone[0],idrone[3]-icust[2],idrone[4]) )
             #cp_dron_list.remove(idrone) #counted instance now remove
             cp_cust_list.remove(icust)
@@ -251,6 +251,10 @@ f_log_plot.write("Q1 queue size = %.2f\n" %(stat_list[0]))
 f_log_plot.write("Q2 queue size = %.2f\n" %(stat_list[1]))
 f_log_plot.write("Q3 queue size = %.2f\n" %(stat_list[2]))
 plt.close()
+
+########## TODO: not finished below..
+import sys
+sys.exit(0)
 
 icnt_plot += 1
 plt.figure()

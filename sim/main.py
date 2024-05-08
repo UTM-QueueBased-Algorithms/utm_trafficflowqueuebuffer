@@ -413,7 +413,9 @@ for icust in cust_input_list:
     cust_read = icust[1]
     (icnt, ideptid,icustid,it) = cust_read.readNextTime()
     cust_data_list.insert(igraph, [icnt, ideptid,icustid,it] )
-    tot_cust_cnt += 1 #new customer request added..
+    #new customer request added.. log it..
+    f_log.write("Customer,%.2f,%.2f,%d,%d,%.2f,%d\n" %(curr_time,it, icustid, cust_output_list[igraph][ideptid].getCurrCustomerSize(), curr_time,igraph) )
+    tot_cust_cnt += 1 
 # MAIN SIMULATION LOOP --------------------------
 try:
     for icnt in range(tot_icnt):

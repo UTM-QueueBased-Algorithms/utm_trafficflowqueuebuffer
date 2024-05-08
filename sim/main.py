@@ -17,6 +17,7 @@ plt.rcParams['font.family'] = 'serif'
 plt.rcParams['font.serif'] = 'Times New Roman'
 fig, ax = plt.subplots()
 
+#################################################
 #------------------------------------------------
 dir_sim_input   = "./sim_input/"
 dir_sim_output  = "./sim_output/"
@@ -111,12 +112,16 @@ size = 1            #drone box size in meters
 BUFFER_size = 25    #buffer box size in meters 
 flag_const_flow = False
 #---
+flag_flow_control = True
+flag_buffer_enable = True
+#---
 flag_test1 = False   #TBOV and network
 flag_test2 = False   #Customer Data
 #---
-flag_sim = False    #start main sim
+flag_sim = True    #start main sim
 
 
+#################################################
 #read depot data --------------------------------
 igraph = 0
 Dept_Loc = []   #item=(dept_id,x,y)
@@ -162,7 +167,7 @@ for igraph in range(num_graphs):
     dir_sim_input2 = dir_sim_input + subgraph
     print()
     try:
-        os.mkdir(dir_sim_input2)
+        os.mkdir(dir_sim_input2) #--> should go to except if created already..
         print("Error: Directory <"+dir_sim_input2+"> created, need to run flowopt_uni.py first!")
         os.rmdir(dir_sim_input2)
         sys.exit(1)
@@ -253,20 +258,23 @@ for igraph in range(num_graphs):
     #--- end setup locations
 
     #--- Queuing Models set-up
+    cust_output_list.insert(igraph,[]) #add list for this igraph
     for idept in range(graphMission.num_dept):   #TODO: currently assume each depot has same input process
         depot_input_model = "FCFS"
-        cust_output_list.append( (igraph,dq.DataDepot(depot_input_model)) )
+        cust_output_list[igraph].append( dq.DataDepot(depot_input_model) )
         f_log.write("\tDepot customer ,%d,%s\n" %(idept,depot_input_model))
+    dron_list.insert(igraph,[]) #add list for this igraph
     for idept in range(graphMission.num_dept):   #TODO: currently assume each depot has same number of drones
         drones_per_depot = 100
-        dron_list.append( (igraph,dq.DataDrone(drones_per_depot)) )
+        dron_list[igraph].append( dq.DataDrone(drones_per_depot) )
         f_log.write("\tDepot drone ,%d,%d\n" %(idept,drones_per_depot))
+    cros_list.insert(igraph,[]) #add list for this igraph
     for icros in range(graphMission.num_wayt):
         buffer_input_model = "FCFS"
         buffer_output_model = "FCFS"
         num_exits = 2
         serivce_time = BUFFER_size / nominal_gnd_spd_m_sec #travel time across buffer in sec 
-        cros_list.append((igraph,icros,dq.DataBuffer(buffer_input_model),dq.DataBuffer(buffer_input_model),net.SchedularNode(num_exits,serivce_time,buffer_output_model)) )
+        cros_list[igraph].append((icros,dq.DataBuffer(buffer_input_model),dq.DataBuffer(buffer_input_model),net.SchedularNode(num_exits,serivce_time,buffer_output_model), (bufferptslist[icros][0],bufferptslist[icros][1]) ))
         f_log.write("\tCrossing ,%d,%s\n" %(icros,buffer_input_model))
     #--- end Queue set-up
 
@@ -288,7 +296,7 @@ for igraph in range(num_graphs):
             if(pline == "Solution rates from depot to depot routes"):
                 #next lines are data we seek
                 if(line[0] != ""): #ignore empty lines
-                    flow_list.append( (igraph,int(line[0]),int(line[1]),int(line[2]),0) )
+                    flow_list.append( (igraph,int(line[0]),int(line[1]),int(line[2]),int(float(line[3]))) )
                     f_log_G.write("\t\t"+str(flow_list[-1])+"\n")
                     #print(Flow[-1])
             else:
@@ -383,163 +391,206 @@ if(flag_test2):
     print("Finished TEST 2")
 
 
-
-
 # DONE with tests.. should we continue with sim?-
+if(flag_test1 or flag_test2):
+    print("Ran Tests, so exit now..")
+    sys.exit(0)
 if(not flag_sim):
+    print("Not running sim, so exit now..")
     sys.exit(0)
 
 #sim initializations
 f_log.write("---START SIMULATION---\n")
 curr_time = 0
-if(not flag_const_flow):
-    (icust_cnt,ideptid,icustid,next_cust_time) = cust.readNextTime()
-#
-tot_cust_cnt = 1 #one customer request
+tot_cust_cnt = 0 #no customer requests yet
 tot_dron_cnt = 0 #no drones sent yet
 tot_dron_done_cnt = 0 #no drones sent yet, so no drones finished mission
 tot_conflict_cnt = 0
+# pre-data readings
+cust_data_list = []
+for icust in cust_input_list:
+    igraph = icust[0]
+    cust_read = icust[1]
+    (icnt, ideptid,icustid,it) = cust_read.readNextTime()
+    cust_data_list.insert(igraph, [icnt, ideptid,icustid,it] )
+    tot_cust_cnt += 1 #new customer request added..
 # MAIN SIMULATION LOOP --------------------------
 try:
     for icnt in range(tot_icnt):
 
-
         #enqueue - customer request
-        if( flag_const_flow ):
-            for idept in range(testGraph.num_dept):
-                for icust in range(testGraph.num_cust):
-                    #check schedule
-                    flow = -1
-                    for iflow in Flow:
-                        if( (iflow[0]==(idept+1)) and (iflow[1]==icust) ):
-                            flow = iflow[2]
-                    if( int(curr_time) % flow == 0 ):
-                        assert(cust_list[idept].addCustomerId(icust))
-                        next_cust_time = curr_time+flow
-                        f_log.write("Customer,%.2f,%.2f,%d,%d,%.2f\n" %(curr_time,next_cust_time+flow, icust, 
-                                                                        cust_list[idept].getCurrCustomerSize(), next_cust_time) )
-                        tot_cust_cnt += 1
         #variable input ---
-        elif( next_cust_time <= curr_time ):
-            if(-1 < icustid and -1 < ideptid):
-                assert(cust_list[ideptid].addCustomerId(icustid))
-            (icust_cnt,ideptid,icustid,next_cust_time) = cust.readNextTime()
-            print("Customer-%d" %icust_cnt)
-            #log data (sim_time,cust_service_time, cust_id, service_queue_size, cust_service_call_time)
-            f_log.write("Customer,%.2f,%.2f,%d,%d,%.2f\n" %(curr_time,next_cust_time, icustid, 
-                                                            cust_list[ideptid].getCurrCustomerSize(), curr_time) )
-            #set next customer event
-            next_cust_call_time = curr_time
-            next_cust_time = cust.getNextExpTime(next_cust_call_time)
-            #
-            tot_cust_cnt += 1
+        for icust in cust_input_list:
+            igraph = icust[0]
+            cust_read = icust[1]
+            ideptid = cust_data_list[igraph][1]
+            icustid = cust_data_list[igraph][2]
+            next_cust_time = cust_data_list[igraph][3]
+            #check if time..
+            if( next_cust_time<=curr_time and -1<icustid and -1<ideptid):
+                assert(cust_output_list[igraph][ideptid].addCustomerId(icustid))
+                try:
+                    (icust_cnt,ideptid,icustid,next_cust_time) = cust_read.readNextTime()
+                    cust_data_list[igraph][0] = icust_cnt
+                    cust_data_list[igraph][1] = ideptid
+                    cust_data_list[igraph][2] = icustid
+                    cust_data_list[igraph][3] = next_cust_time
+                    #log data (sim_time,cust_service_time, cust_id, service_queue_size, cust_service_call_time,igraph)
+                    f_log.write("Customer,%.2f,%.2f,%d,%d,%.2f,%d\n" %(curr_time,next_cust_time, icustid, 
+                                                            cust_output_list[igraph][ideptid].getCurrCustomerSize(), curr_time,igraph) )
+                    tot_cust_cnt += 1
+                except:
+                    print("Graph-%d Customer-%d DONE=%s" %(igraph,cust_data_list[igraph][0],str(cust_data_list[igraph])) )
+                    cust_data_list[igraph][0] = -1
+                    cust_data_list[igraph][1] = -1
+                    cust_data_list[igraph][2] = -1
+                    cust_data_list[igraph][3] = tot_icnt*Ts
         #end - enqueue - customer request
 
 
         #dequeue - depot sends drone
         #TODO: currently assume each depot has same items customer wants, no optimization among depots
-        for idept in range(testGraph.num_dept):
-            for icust in range(testGraph.num_cust):
+        for igraph in range(num_graphs):
+            for idept in range(len(cust_output_list[igraph])):
                 #make sure there are customers
-                cust_size = cust_list[idept].getCurrCustomerSize()
+                cust_size = cust_output_list[igraph][idept].getCurrCustomerSize()
                 #print("num customers = %d\n" %cust_size)
                 if(0 < cust_size):
                     status_drone = False
-                    curr_cust_id = cust_list[idept].getNextCustomerId()
+                    curr_cust_id = cust_output_list[igraph][idept].getNextCustomerId()
 
                     if(flag_flow_control):
                         #check flow-schedule
-                        flow = -1
-                        delay = 0
-                        for iflow in Flow:
-                            if( (iflow[0]==(idept+1)) and (iflow[1]==icust) ):
-                                flow = iflow[2]  
-                                delay = iflow[3]             
-                        if( (curr_cust_id==icust) and (int(curr_time-delay)%flow==0) ):
-                            if(delay>0): print(idept,icust,delay)
-                            status_drone = True
+                        for iflow in flow_list:
+                            _graph = iflow[0] #(igraph,idept,icust,flow,delay)
+                            _idept = iflow[1]
+                            _icust = iflow[2]
+                            _flow  = 0
+                            _delay = 0
+                            if( (_graph==igraph) and (_idept==idept+1) and (_icust==curr_cust_id) ): #depot is offset by one, might need to fix later?
+                                _flow  = iflow[3]  
+                                _delay = iflow[4]  
+                                if( (int(curr_time-_delay)%_flow==0) ):
+                                    if(_delay>0): print(_idept,_icust,_delay)
+                                    status_drone = True
+                                    break #found the correct one.. 
                         #end check flow
                     else:
                         status_drone = True
 
                     #successful? Then send drone to service customer
                     if( status_drone ):
-                        testroute = testGraph.generateRoute(idept,curr_cust_id,nominal_gnd_spd_m_sec,drone_setup_time)
-                        x = testroute[0][0]
-                        y = testroute[1][0]
-                        #
-                        assert(dron_list[idept].groundDroneAdd(testroute,curr_cust_id,drone_setup_time,nominal_gnd_spd_m_sec,x,y))
-                        cust_list[idept].clearNextCustomerId() #launched drone, so can clear request for next customer
+                        #find corresponding route
+                        for iroute in route_list:
+                            #---(igraph,idept,icust,testroute) #subgraph,dept,cust,route_info
+                            t_graph = iroute[0]
+                            t_dept = iroute[1]
+                            t_cust = iroute[2]
+                            if( igraph==t_graph and idept==t_dept and curr_cust_id==t_cust ):
+                                testroute = iroute[3]
+                                x = testroute[0][0]
+                                y = testroute[1][0]
+                                #
+                                assert(dron_list[igraph][idept].groundDroneAdd(testroute,curr_cust_id,drone_setup_time,nominal_gnd_spd_m_sec,x,y))
+                                cust_output_list[igraph][idept].clearNextCustomerId() #launched drone, so can clear request for next customer
+                                break #exit for-loop (no need to look for others)
                 #end customer check
         #end - dequeue - depot sends drone
 
 
         #simulate all active drones in FLY
-        for idept in range(testGraph.num_dept):
-            #check drones
-            if( dron_list[idept].flyDroneRemoveAllDone() ): #remove method is loop
-                for idrone in dron_list[idept].drones_list_fly_done_recent:
-                    #log data (sim_time, dept_id, sta, drone_id)
-                    f_log.write("Drone End,%.2f,%d,%.2f,%d\n" %(curr_time,idept,idrone.list_ETA[-1],idrone.id) )
-                    tot_dron_done_cnt += 1
-            for testdrone in dron_list[idept].drones_list_fly:
-                x = testdrone.x
-                y = testdrone.y
-                #
-                #advance step for fly drone
-                #1. check if need to put into buffer (if not doing flow control at depot)
-                if(not flag_flow_control):
-                    icntwaypt=0
-                    for iwaypt in testGraph.Cros_Loc:
-                        id = cros_list[icntwaypt].getNextDroneId()
+        for igraph in range(num_graphs):
+            for idept in range(len(cust_output_list[igraph])):
+                #check drones
+                if( dron_list[igraph][idept].flyDroneRemoveAllDone() ): #remove method is loop
+                    for idrone in dron_list[igraph][idept].drones_list_fly_done_recent:
+                        #log data (sim_time, dept_id, sta, drone_id)
+                        f_log.write("Drone End,%.2f,%d,%.2f,%d,%d\n" %(curr_time,idept,idrone.list_ETA[-1],idrone.id,igraph) )
+                        tot_dron_done_cnt += 1
+                for testdrone in dron_list[igraph][idept].drones_list_fly:
+                    x = testdrone.x
+                    y = testdrone.y
+                    #
+                    #advance step for fly drone
+                    #1. check if need to put into buffer 
+                    iflag=False
+                    cros_igraph_list = cros_list[igraph]
+                    for ibuffer in cros_igraph_list:
+                        icros = ibuffer[0] #crossing number label
+                        iqueu = ibuffer[1] #list of waiting drones at crossing
+                        iqueu_passed = ibuffer[2] #list of approved drones to fly in buffer
+                        ische = ibuffer[3] #schedular for processing waiting drones
+
+                        checkexit=1 #TODO: include exit checking...
+                        (status,openexit) = ische.checkNextExit(checkexit,curr_time)
+                        id = iqueu.getNextDroneId()
                         if(id==testdrone.id):
-                            #already waiting here, free it
-                            cros_list[icntwaypt].clearNextDroneId()
+                            #already waiting here, should we free it?
+                            if(status):
+                                #good to-go
+                                iqueu_passed.addDroneId(iqueu.clearNextDroneId())
+                            else:
+                                #keep holding it here
+                                flag = True
+                                testdrone.pause(Ts)
+                                tot_conflict_cnt += 1 #confict since waiting here for more time..
                             break
                         else:
                             #not waiting here, should we add it?
-                            ixw = float(iwaypt[0])
-                            iyw = float(iwaypt[1])
+                            ixw = ibuffer[4][0]
+                            iyw = ibuffer[4][1]
                             ir = math.sqrt( math.pow(x-ixw,2.0)+math.pow(y-iyw,2.0) )
                             #check if not waiting and within range
-                            if( ir<=50 and 0<testdrone.speed ):
-                                testdrone.pause(Ts)
-                                cros_list[icntwaypt].addDroneId(testdrone.id)
-                                tot_conflict_cnt += 1
-                                break
-                        #
-                        icntwaypt += 1
-                #end
-                #2. apply motion
-                (status,messageMove) = testdrone.moveTs(Ts)
-                assert(status)
-                (status,messageRoute) = testdrone.updateRouteStatus()
-                assert(status)
-                #log data (sim_time,x,y,heading, drone_id)
-                f_log.write("Drone FLY,%.2f,%.2f,%.2f,%.2f,%d\n" 
-                        %(curr_time,testdrone.x,testdrone.y,testdrone.heading, testdrone.id) )
-                #
-                #print("T=%f MOVE>\t %s:%s" %(itime,messageMove,messageRoute))
-            for testdrone in dron_list[idept].drones_list_ground:
-                #advance step for wait drone
-                (status,messageMove) = testdrone.moveTs(Ts)
-                assert(status)
-                (status,messageRoute) = testdrone.updateRouteStatus()
-                assert(status)
-                #print("T=%f WAIT>\t %s:%s" %(itime,messageMove,messageRoute))
-                if(testdrone.status == drone.Drone.GROUND_READY):
-                    assert(dron_list[idept].groundDroneLaunch())
-                    #log data (sim_time,x,y,heading, cust_id,dept_id, eta, free_drones, drone_id)
-                    f_log.write("Drone Start,%.2f,%.2f,%.2f,%.2f,%d,%d,%.2f,%d,%d\n" 
-                        %(curr_time,testdrone.x,testdrone.y,testdrone.heading, testdrone.getCustomerId(),idept, 
-                        testdrone.list_ETA[-1], dron_list[idept].groundVertiportAvialableSize(),dron_list[idept].flyDroneGetRecentIdLaunch()) )
+                            if( flag_buffer_enable and ir<=BUFFER_size and 0<testdrone.speed ): #TODO: not necessary a conflict but for simplicity hold all here for one time step
+                                #check if approved to fly inside
+                                _d_list = iqueu_passed.getList()
+                                _flag = True
+                                for _id in _d_list:
+                                    if(_id==testdrone.id):
+                                        _flag = False
+                                        break
+                                if(_flag):
+                                    flag = True
+                                    testdrone.pause(Ts)
+                                    iqueu.addDroneId(testdrone.id)
+                                    break
+                        #endif
+                    #endfor
+                    #if(flag):
+                    #    plt.scatter(x,y, c='red',s=20, edgecolors='none', label='wait UAV')
+                    #else:
+                    #    plt.scatter(x,y, c='purple',s=20, edgecolors='none', label='UAV')
+                    #end
+                    #2. apply motion
+                    (status,messageMove) = testdrone.moveTs(Ts)
+                    assert(status)
+                    (status,messageRoute) = testdrone.updateRouteStatus()
+                    assert(status)
+                    #log data (sim_time,x,y,heading, drone_id)
+                    f_log.write("Drone FLY,%.2f,%.2f,%.2f,%.2f,%d\n" 
+                            %(curr_time,testdrone.x,testdrone.y,testdrone.heading, testdrone.id) )
                     #
-                    tot_dron_cnt += 1
+                    #print("T=%f MOVE>\t %s:%s" %(itime,messageMove,messageRoute))
+                for testdrone in dron_list[igraph][idept].drones_list_ground:
+                    #advance step for wait drone
+                    (status,messageMove) = testdrone.moveTs(Ts)
+                    assert(status)
+                    (status,messageRoute) = testdrone.updateRouteStatus()
+                    assert(status)
+                    #print("T=%f WAIT>\t %s:%s" %(itime,messageMove,messageRoute))
+                    if(testdrone.status == ua.Drone.GROUND_READY):
+                        assert(dron_list[igraph][idept].groundDroneLaunch())
+                        #log data (sim_time,x,y,heading, cust_id,dept_id, eta, free_drones, drone_id)
+                        f_log.write("Drone Start,%.2f,%.2f,%.2f,%.2f,%d,%d,%.2f,%d,%d,%d\n" 
+                            %(curr_time,testdrone.x,testdrone.y,testdrone.heading, testdrone.getCustomerId(),idept, 
+                            testdrone.list_ETA[-1], dron_list[igraph][idept].groundVertiportAvialableSize(),dron_list[igraph][idept].flyDroneGetRecentIdLaunch(),igraph) )
+                        #
+                        tot_dron_cnt += 1
         #end - simulate all active drones in FLY
 
         if(icnt % print_rate == 0):
             f_log.write("SIM step: %d/%d, TIME=%.2f\n" %(icnt,tot_icnt,curr_time))
-            print("sim done: %d/%d" %(icnt,tot_icnt))
+            print("SIM step: %d/%d, TIME=%.2f" %(icnt,tot_icnt,curr_time))
         #end, update time
         curr_time += Ts
 
@@ -552,7 +603,9 @@ except:
 
 #END
 if(not flag_const_flow):
-    cust.closeFile()
+    for icust in cust_input_list:
+        cust_read = icust[1]
+        cust_read.closeFile()
 #------------------------------------------------
 f_log.write("---END SIMULATION---\n")
 f_log.write("SIM DONE %d/%d, TOTAL TIME=%.2f\n" %(icnt+1,tot_icnt,curr_time) )
@@ -562,4 +615,4 @@ f_log.write("Total number of drones flew       = %d\n" %tot_dron_cnt)
 f_log.write("Total number of delay updates     = %d\n" %tot_conflict_cnt)
 f_log.close()
 
-print("DONE")
+print("DONE, check log..")

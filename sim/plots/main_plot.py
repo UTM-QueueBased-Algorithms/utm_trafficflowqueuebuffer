@@ -28,17 +28,17 @@ f_log_plot = open(dir_sim_output+"log_plot.txt", "w+") #capture everything
 #  - drone End   log data    (1=sim_time, 2=dept_id, 3=sta, 4=drone_id)
 #  - drone FLY   log data    (1=sim_time, 2=x, 3=y, 4=heading, 5=id)
 #  - drone Conflict  data    (1=sim_time, 2=id)
-with open(dir_sim_output+"log_flowcontrol.txt","r") as f_log:
+with open(dir_sim_input+"log.txt","r") as f_log:
     reader = csv.reader(f_log)
     for line in reader:
         if(line[0] == "Customer"):
-            cust_list.append( (int(line[3]), float(line[2]), float(line[1]), float(line[5])) )
+            cust_list.append( (int(line[3]), float(line[2]), float(line[1]), float(line[5]),int(line[6])) )
             queue_size_list.append( (float(line[1]), int(line[4])) )
         elif(line[0] == "Drone Start"):
-            dron_list.append( (int(line[5]), int(line[6]), float(line[7]), float(line[1]), int(line[9])) )
+            dron_list.append( (int(line[5]), int(line[6]), float(line[7]), float(line[1]), int(line[9]),int(line[10])) )
             drone_size_list.append( (float(line[1]), int(line[6]), int(line[8])) )
         elif(line[0] == "Drone End"):
-            drone_done_list.append( (float(line[3]),int(line[4])) )
+            drone_done_list.append( (float(line[3]),int(line[4]),int(line[5])) )
         #elif(line[0] == "Drone FLY"):
         #    dron_fly_list.append( (float(line[1]), float(line[2]), float(line[3]), float(line[4]), int(line[5])) )
         #elif(line[0] == "Drone Conflict"):
@@ -50,11 +50,11 @@ with open(dir_sim_output+"log_flowcontrol.txt","r") as f_log:
                 num_cust = int(line[1])
             elif(line[0] == "Number of Depots"):
                 num_dept = int(line[1])
-            elif(line[0] == "total time steps (count)"):
+            elif(line[0] == "Total number of time steps"):
                 tot_icnt = int(line[1])
-            elif(line[0] == "time step (sec)"):
+            elif(line[0] == "Time step (sec)"):
                 Ts = float(line[1])
-            elif(line[0] == "ideal drone amount per depot (count)"):
+            elif(line[0] == "ideal drone amount per depot"):
                 max_drones_per_depot = int(line[1])
 print("Num of customer requests =",len(cust_list))
 print("Num of drone launches    =",len(dron_list))
@@ -68,7 +68,7 @@ cp_cust_list = cust_list.copy()
 for idrone in cp_dron_list:    #item=(cust_id,dept_id, dron_service_time, sim_time,drone_id)
     for icust in cp_cust_list: #item=(cust_id,         cust_service_time, sim_time,cust_call_time)
         #same customer id?
-        if( idrone[0]==icust[0] ):
+        if( idrone[0]==icust[0] and idrone[-1]==icust[-1]):
             delay_list.append( (idrone[0],idrone[3]-icust[2],idrone[4]) )
             #cp_dron_list.remove(idrone) #counted instance now remove
             cp_cust_list.remove(icust)

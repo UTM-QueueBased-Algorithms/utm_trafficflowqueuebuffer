@@ -6,7 +6,7 @@ poisson_client_arr_rate lambda (order/hr), 100
 reached waypoint distance (meter), 10
 ---
 time step (sec), 1
-total time steps (count), 10000
+total time steps (count), 100000
 print output every (count), 100
 ---
 ideal drone amount per depot (count), 10000
